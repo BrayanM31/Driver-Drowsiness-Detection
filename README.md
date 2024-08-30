@@ -51,7 +51,8 @@ To run the drowsiness detection system, execute the following command:
 bash
 Copy code
 python drowsiness_detection.py
-The script will activate your webcam and start monitoring the driver's face. If drowsiness is detected, an alert will be triggered.
+The script will activate your webcam and start monitoring the driver's face. If drowsiness is detected,
+an alert will be triggered.
 
 # Files in the Repository
 * drowsiness_detection.py: Main script to run the drowsiness detection system.
@@ -65,4 +66,8 @@ The system uses a pre-trained model to monitor the driver's face in real-time. T
 drowsiness. If the EAR falls below a certain threshold, the system triggers an alert.
 
 # Conclusion
-Driver drowsiness detection is a critical component in enhancing road safety. This project demonstrates how machine learning techniques can be applied to create a practical solution that could potentially save lives by preventing accidents caused by drowsy driving. With further improvements and optimizations, this system can be integrated into various real-world applications, contributing to safer driving conditions for everyone.
+Driver drowsiness detection is a critical component in enhancing road safety. This project
+demonstrates how machine learning techniques can be applied to create a practical solution that
+could potentially save lives by preventing accidents caused by drowsy driving. With further
+improvements and optimizations, this system can be integrated into various real-world
+applications, contributing to safer driving conditions for everyone.
