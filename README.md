@@ -30,7 +30,7 @@ Clone the repository:
 
 bash
 Copy code
-git clone https://github.com/yourusername/drowsiness-detection.git
+git clone https://github.com/prarbdht/Driver-Drowsiness-detection-system.git
 cd drowsiness-detection
 Install the required Python packages:
 
