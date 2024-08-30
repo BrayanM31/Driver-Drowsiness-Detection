@@ -28,20 +28,17 @@ pip install tensorflow keras opencv-python numpy
 # Installation
 Clone the repository:
 
-bash
 Copy code
 git clone https://github.com/prarbdht/Driver-Drowsiness-detection-system.git
-cd drowsiness-detection
+cd Driver_Drowsiness_Detection
 Install the required Python packages:
 
-bash
 Copy code
 pip install -r requirements.txt
 Download or prepare your dataset (if applicable).
 
 Train the model (if needed) by running:
 
-bash
 Copy code
 python model.py
 
