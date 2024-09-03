@@ -21,15 +21,14 @@ Before you begin, ensure you have met the following requirements:
   
 You can install the necessary libraries using the following command:
 
-bash
-Copy code
+```Copy code
 pip install tensorflow keras opencv-python numpy
+```
 
 # Installation
 Clone the repository:
 
-Copy code
-```
+```Copy code
 git clone https://github.com/prarbdht/Driver-Drowsiness-detection-system.git
 ```
 ```
@@ -37,25 +36,21 @@ cd Driver_Drowsiness_Detection
 ```
 Install the required Python packages:
 
-Copy code
-```
+```Copy code
 pip install -r requirements.txt
 ```
 Download or prepare your dataset (if applicable).
 
 Train the model (if needed) by running:
 
-Copy code
-```
+```Copy code
 python model.py
 ```
 
 # Usage
 To run the drowsiness detection system, execute the following command:
 
-bash
-Copy code
-```
+```Copy code
 python drowsiness_detection.py
 ```
 The script will activate your webcam and start monitoring the driver's face. If drowsiness is detected,
