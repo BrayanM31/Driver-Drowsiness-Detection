@@ -5,123 +5,90 @@ import numpy as np
 from pygame import mixer
 import time
 
+# Inicialización de sonido
 mixer.init()
-sound = mixer.Sound('alarm.wav')
+try:
+    sound = mixer.Sound('alarm.wav')
+except FileNotFoundError:
+    raise FileNotFoundError("El archivo 'alarm.wav' no se encontró.")
 
-face = cv2.CascadeClassifier('haar cascade files/haarcascade_frontalface_alt.xml')
-leye = cv2.CascadeClassifier('haar cascade files/haarcascade_lefteye_2splits.xml')
-reye = cv2.CascadeClassifier('haar cascade files/haarcascade_righteye_2splits.xml')
+# Cargar clasificadores en cascada
+face_cascade = cv2.CascadeClassifier('haar cascade files/haarcascade_frontalface_alt.xml')
+left_eye_cascade = cv2.CascadeClassifier('haar cascade files/haarcascade_lefteye_2splits.xml')
+right_eye_cascade = cv2.CascadeClassifier('haar cascade files/haarcascade_righteye_2splits.xml')
 
-lbl = ['Close', 'Open']
+# Verificar si el modelo existe
+if not os.path.exists('models/cnnCat2.h5'):
+    raise FileNotFoundError("El modelo 'cnnCat2.h5' no se encontró en la carpeta 'models/'.")
 
-model = load_model('models/cnncat2.h5')
-path = os.getcwd()
-cap = cv2.VideoCapture(0)
-font = cv2.FONT_HERSHEY_COMPLEX_SMALL
-count = 0
-score = 0
-thicc = 2
-rpred = [99]
-lpred = [99]
+# Cargar el modelo
+model = load_model('models/cnnCat2.h5')
 
-# Variables para controlar el sonido y el temporizador
-alarm_playing = False
-last_played_time = 0  # Para controlar cuando fue la última vez que se reprodujo el sonido
+# Configuración inicial
+drowsiness_score = 0
+frame_thickness = 2
+last_played_time = 0
 sound_duration = 10  # Duración del sonido en segundos
+alarm_playing = False
 
-while(True):
-    ret, frame = cap.read()
-    height, width = frame.shape[:2] 
+# Análisis de ojos
+def analyze_eye(eye, model):
+    eye = cv2.cvtColor(eye, cv2.COLOR_BGR2GRAY)
+    eye = cv2.resize(eye, (24, 24))
+    eye = eye / 255
+    eye = eye.reshape(24, 24, -1)
+    eye = np.expand_dims(eye, axis=0)
+    return np.argmax(model.predict(eye), axis=-1)
 
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    
-    faces = face.detectMultiScale(gray, minNeighbors=5, scaleFactor=1.1, minSize=(25,25))
-    left_eye = leye.detectMultiScale(gray)
-    right_eye = reye.detectMultiScale(gray)
-
-    cv2.rectangle(frame, (0, height-50), (200, height), (0, 0, 0), thickness=cv2.FILLED)
-
-    for (x, y, w, h) in faces:
-        cv2.rectangle(frame, (x, y), (x + w, y + h), (100, 100, 100), 1)
-
-    for (x, y, w, h) in right_eye:
-        r_eye = frame[y:y + h, x:x + w]
-        count += 1
-        r_eye = cv2.cvtColor(r_eye, cv2.COLOR_BGR2GRAY)
-        r_eye = cv2.resize(r_eye, (24, 24))
-        r_eye = r_eye / 255
-        r_eye = r_eye.reshape(24, 24, -1)
-        r_eye = np.expand_dims(r_eye, axis=0)
-        rpred = np.argmax(model.predict(r_eye), axis=-1)
-        if rpred[0] == 1:
-            lbl = 'Open' 
-        if rpred[0] == 0:
-            lbl = 'Closed'
-        break
-
-    for (x, y, w, h) in left_eye:
-        l_eye = frame[y:y + h, x:x + w]
-        count += 1
-        l_eye = cv2.cvtColor(l_eye, cv2.COLOR_BGR2GRAY)
-        l_eye = cv2.resize(l_eye, (24, 24))
-        l_eye = l_eye / 255
-        l_eye = l_eye.reshape(24, 24, -1)
-        l_eye = np.expand_dims(l_eye, axis=0)
-        lpred = np.argmax(model.predict(l_eye), axis=-1)
-        if lpred[0] == 1:
-            lbl = 'Open'   
-        if lpred[0] == 0:
-            lbl = 'Closed'
-        break
-
-    if rpred[0] == 0 and lpred[0] == 0:
-        score += 1
-        cv2.putText(frame, "Closed", (10, height - 20), font, 1, (255, 255, 255), 1, cv2.LINE_AA)
-    else:
-        score -= 1
-        cv2.putText(frame, "Open", (10, height - 20), font, 1, (255, 255, 255), 1, cv2.LINE_AA)
-    
-    if score < 0:
-        score = 0   
-
-    cv2.putText(frame, 'Score:' + str(score), (100, height - 20), font, 1, (255, 255, 255), 1, cv2.LINE_AA)
-    
-    if score > 15:
-        # Persona está somnolienta, se activa la alarma
-        cv2.imwrite(os.path.join(path, 'image.jpg'), frame)
+# Captura de video
+cap = cv2.VideoCapture(0)
+try:
+    while True:
+        ret, frame = cap.read()
+        height, width = frame.shape[:2]
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         
-        # Mostrar el mensaje en la terminal
-        print("¡Alerta! El usuario está somnoliento. La alarma se activa.")
+        # Detección de rostro y ojos
+        faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(25, 25))
+        left_eye = left_eye_cascade.detectMultiScale(gray)
+        right_eye = right_eye_cascade.detectMultiScale(gray)
+        
+        for (x, y, w, h) in faces:
+            cv2.rectangle(frame, (x, y), (x + w, y + h), (100, 100, 100), 1)
 
-        # Reproducir el sonido solo si no se está reproduciendo o si pasó suficiente tiempo desde la última vez
-        current_time = time.time()  # Tiempo actual en segundos
-        if not alarm_playing or current_time - last_played_time >= sound_duration:
-            try:
-                sound.play()  # Iniciar el sonido
-                alarm_playing = True  # Marcar que el sonido está sonando
-                last_played_time = current_time  # Actualizar el tiempo de la última vez que se reprodujo
-            except:
-                pass
+        for (x, y, w, h) in right_eye:
+            r_eye = frame[y:y + h, x:x + w]
+            right_eye_prediction = analyze_eye(r_eye, model)
+            break
 
-        if thicc < 16:
-            thicc += 2
+        for (x, y, w, h) in left_eye:
+            l_eye = frame[y:y + h, x:x + w]
+            left_eye_prediction = analyze_eye(l_eye, model)
+            break
+
+        # Somnolencia detectada
+        if right_eye_prediction[0] == 0 and left_eye_prediction[0] == 0:
+            drowsiness_score += 1
+            cv2.putText(frame, "Closed", (10, height - 20), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (255, 255, 255), 1)
         else:
-            thicc -= 2
-            if thicc < 2:
-                thicc = 2
-        cv2.rectangle(frame, (0, 0), (width, height), (0, 0, 255), thicc)
+            drowsiness_score = max(drowsiness_score - 1, 0)
+            cv2.putText(frame, "Open", (10, height - 20), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (255, 255, 255), 1)
 
-    else:
-        # Si el puntaje cae por debajo del umbral, asegurarse de que el sonido no vuelva a sonar
-        if alarm_playing and not mixer.get_busy():
-            alarm_playing = False  # Resetear el estado de la alarma
+        # Alarma si somnolencia persiste
+        if drowsiness_score > 15:
+            if not alarm_playing or time.time() - last_played_time >= sound_duration:
+                try:
+                    sound.play()
+                    alarm_playing = True
+                    last_played_time = time.time()
+                except:
+                    pass
+            cv2.rectangle(frame, (0, 0), (width, height), (0, 0, 255), frame_thickness)
 
-    # Mostrar el frame
-    cv2.imshow('frame', frame)
-
-    # Si se presiona 'q', se detiene el ciclo
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        break
-
-cap.release()
-cv2.destroyAllWindows()
+        # Mostrar el video
+        cv2.imshow('Driver Drowsiness Detection', frame)
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+finally:
+    cap.release()
+    cv2.destroyAllWindows()
