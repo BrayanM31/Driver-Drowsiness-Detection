@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  app:
+    container_name: drowsiness_detection
+    build: .
+    image: drowsiness_detection:latest
+    volumes:
+      - .:/app
+    working_dir: /app
+    command: ["python", "drowsiness_detection.py"]
+    depends_on:
+      - webcam
+    environment:
+      - PYTHONUNBUFFERED=1
+
+  webcam:
+    image: jrottenberg/ffmpeg
+    container_name: webcam_service
+    devices:
+      - /dev/video0:/dev/video0
