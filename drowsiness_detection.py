@@ -1,63 +1,59 @@
-import cv2
 import os
-import numpy as np
-from keras.models import load_model
-from pygame import mixer
 import time
-
+import cv2
+from keras.models import load_model
+import numpy as np
+from pygame import mixer
 
 # Inicialización de sonido
-def initialize_sound():
-    mixer.init()
-    try:
-        return mixer.Sound('alarm.wav')
-    except FileNotFoundError:
-        raise FileNotFoundError("El archivo 'alarm.wav' no se encontró.")
+mixer.init()
+try:
+    sound = mixer.Sound('alarm.wav')
+except FileNotFoundError as exc:
+    raise FileNotFoundError("El archivo 'alarm.wav' no se encontró.") from exc
 
+# Cargar clasificadores en cascada para detección de rostro y ojos
+face_cascade = cv2.CascadeClassifier('haar cascade files/haarcascade_frontalface_alt.xml')
+left_eye_cascade = cv2.CascadeClassifier('haar cascade files/haarcascade_lefteye_2splits.xml')
+right_eye_cascade = cv2.CascadeClassifier('haar cascade files/haarcascade_righteye_2splits.xml')
 
-# Cargar clasificadores en cascada
-def load_cascade_classifiers():
-    face_cascade = cv2.CascadeClassifier('haar cascade files/haarcascade_frontalface_alt.xml')
-    left_eye_cascade = cv2.CascadeClassifier('haar cascade files/haarcascade_lefteye_2splits.xml')
-    right_eye_cascade = cv2.CascadeClassifier('haar cascade files/haarcascade_righteye_2splits.xml')
-    return face_cascade, left_eye_cascade, right_eye_cascade
+# Verificar si el modelo existe
+if not os.path.exists('models/cnnCat2.h5'):
+    raise FileNotFoundError("El modelo 'cnnCat2.h5' no se encontró en la carpeta 'models/'.")
 
+# Cargar el modelo de predicción
+eye_detection_model = load_model('models/cnnCat2.h5')
 
-# Cargar el modelo
-def load_model_from_file():
-    model_path = 'models/cnnCat2.h5'
-    if not os.path.exists(model_path):
-        raise FileNotFoundError(f"El modelo '{model_path}' no se encontró en la carpeta 'models/'.")
-    return load_model(model_path)
+# Configuración inicial de variables
+DROWSINESS_SCORE = 0
+FRAME_THICKNESS = 2
+LAST_PLAYED_TIME = 0
+SOUND_DURATION = 10  # Duración del sonido en segundos
+ALARM_PLAYING = False
 
-
-# Preprocesar imagen de ojo para la predicción
 def analyze_eye(eye, model):
+    """
+    Analiza el ojo para predecir si está cerrado o abierto usando el modelo de red neuronal.
+    Args:
+        eye: Imagen del ojo.
+        model: Modelo de predicción entrenado.
+    Returns:
+        Predicción de si el ojo está cerrado (0) o abierto (1).
+    """
     eye = cv2.cvtColor(eye, cv2.COLOR_BGR2GRAY)
-    eye = cv2.resize(eye, (24, 24)) / 255
+    eye = cv2.resize(eye, (24, 24))
+    eye = eye / 255
     eye = eye.reshape(24, 24, -1)
     eye = np.expand_dims(eye, axis=0)
     return np.argmax(model.predict(eye), axis=-1)
 
+# Inicialización de variables de predicción para los ojos
+right_eye_prediction = [99]
+left_eye_prediction = [99]
 
-# Función principal para la ejecución del programa
-def main():
-    # Inicialización
-    sound = initialize_sound()
-    face_cascade, left_eye_cascade, right_eye_cascade = load_cascade_classifiers()
-    model = load_model_from_file()
-
-    cap = cv2.VideoCapture(0)
-    if not cap.isOpened():
-        print("No se puede acceder a la cámara.")
-        exit()
-
-    drowsiness_score = 0
-    alarm_playing = False
-    last_played_time = 0
-    sound_duration = 10  # Duración del sonido en segundos
-
-    # Captura de video
+# Captura de video
+cap = cv2.VideoCapture(0)
+try:
     while True:
         ret, frame = cap.read()
         if not ret:
@@ -79,42 +75,38 @@ def main():
         if len(right_eye) > 0:
             (x, y, w, h) = right_eye[0]
             r_eye = frame[y:y + h, x:x + w]
-            right_eye_prediction = analyze_eye(r_eye, model)
+            right_eye_prediction = analyze_eye(r_eye, eye_detection_model)
 
         # Análisis del ojo izquierdo
         if len(left_eye) > 0:
             (x, y, w, h) = left_eye[0]
             l_eye = frame[y:y + h, x:x + w]
-            left_eye_prediction = analyze_eye(l_eye, model)
+            left_eye_prediction = analyze_eye(l_eye, eye_detection_model)
 
         # Somnolencia detectada
         if right_eye_prediction[0] == 0 and left_eye_prediction[0] == 0:
-            drowsiness_score += 1
+            DROWSINESS_SCORE += 1
             cv2.putText(frame, "Closed", (10, height - 20), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (255, 255, 255), 1)
         else:
-            drowsiness_score = max(drowsiness_score - 1, 0)
+            DROWSINESS_SCORE = max(DROWSINESS_SCORE - 1, 0)
             cv2.putText(frame, "Open", (10, height - 20), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (255, 255, 255), 1)
 
         # Alarma si somnolencia persiste
-        if drowsiness_score > 15:
-            if not alarm_playing or time.time() - last_played_time >= sound_duration:
+        if DROWSINESS_SCORE > 15:
+            if not ALARM_PLAYING or time.time() - LAST_PLAYED_TIME >= SOUND_DURATION:
                 try:
                     sound.play()
-                    alarm_playing = True
-                    last_played_time = time.time()
+                    ALARM_PLAYING = True
+                    LAST_PLAYED_TIME = time.time()
                 except Exception as e:
-                    print(f"Error al reproducir sonido: {e}")
-            cv2.rectangle(frame, (0, 0), (width, height), (0, 0, 255), 2)
+                    print(f"Error al reproducir la alarma: {e}")
+                    pass
+            cv2.rectangle(frame, (0, 0), (width, height), (0, 0, 255), FRAME_THICKNESS)
 
         # Mostrar el video
         cv2.imshow('Driver Drowsiness Detection', frame)
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
-
-    # Liberar la cámara
+finally:
     cap.release()
     cv2.destroyAllWindows()
-
-
-if __name__ == "__main__":
-    main()
