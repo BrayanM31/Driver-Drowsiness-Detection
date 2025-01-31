@@ -1,0 +1,36 @@
+name: Continuous Integration (CI)
+
+on:
+  push:
+    branches:
+      - feature/nueva-funcionalidad  # La rama donde deseas ejecutar el flujo
+  pull_request:
+    branches:
+      - feature/nueva-funcionalidad
+
+jobs:
+  build:
+    runs-on: ubuntu-latest  # Usa un contenedor de Ubuntu para ejecutar los jobs
+
+    steps:
+      # Checkout el código del repositorio
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      # Instalar dependencias de Python (si las tienes)
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.x'  # Cambia la versión de Python si es necesario
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt  # Asegúrate de tener un archivo requirements.txt con tus dependencias
+
+      # Ejecutar tus pruebas (si las tienes)
+      - name: Run tests
+        run: |
+          python -m unittest discover  # Cambia si usas otro framework de pruebas como pytest
+
+      # Puedes agregar más pasos como el despliegue o notificaciones
